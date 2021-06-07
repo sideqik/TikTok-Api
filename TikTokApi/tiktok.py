@@ -542,6 +542,32 @@ class TikTokApi:
 
         return response[:count]
 
+    def user_posts_url(self, userID, secUID, count=30, cursor=0, **kwargs) -> str:
+        (
+            region,
+            language,
+            proxy,
+            maxCount,
+            did,
+        ) = self.__process_kwargs__(kwargs)
+        kwargs["custom_did"] = did
+
+        query = {
+            "count": count,
+            "id": userID,
+            "cursor": cursor,
+            "type": 1,
+            "secUid": secUID,
+            "sourceType": 8,
+            "appId": 1233,
+            "region": region,
+            "priority_region": region,
+            "language": language,
+        }
+        return "{}api/post/item_list/?{}&{}".format(
+          BASE_URL, self.__add_url_params__(), urlencode(query)
+        )
+
     def user_posts(self, userID, secUID, count=30, cursor=0, **kwargs) -> dict:
         """Returns an array of dictionaries representing TikToks for a user.
 
@@ -576,22 +602,9 @@ class TikTokApi:
             else:
                 realCount = maxCount
 
-            query = {
-                "count": realCount,
-                "id": userID,
-                "cursor": cursor,
-                "type": 1,
-                "secUid": secUID,
-                "sourceType": 8,
-                "appId": 1233,
-                "region": region,
-                "priority_region": region,
-                "language": language,
-            }
-            api_url = "{}api/post/item_list/?{}&{}".format(
-                BASE_URL, self.__add_url_params__(), urlencode(query)
+            api_url = self.user_posts_url(
+                userID, secUID, count=realCount, cursor=cursor, **kwargs
             )
-
             res = self.get_data(url=api_url, **kwargs)
 
             if "itemList" in res.keys():
