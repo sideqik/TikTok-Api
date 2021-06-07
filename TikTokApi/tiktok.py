@@ -101,8 +101,8 @@ class TikTokApi:
         * custom_device_id: A TikTok parameter needed to download videos, optional
             The code generates these and handles these pretty well itself, however
             for some things such as video download you will need to set a consistent
-            one of these. All the methods take this as a optional parameter, however 
-            it's cleaner code to store this at the instance level. You can override 
+            one of these. All the methods take this as a optional parameter, however
+            it's cleaner code to store this at the instance level. You can override
             this at the specific methods.
 
         * generate_static_device_id: A parameter that generates a custom_device_id at the instance level
@@ -111,7 +111,7 @@ class TikTokApi:
 
         * custom_verifyFp: A TikTok parameter needed to work most of the time, optional
             To get this parameter look at [this video](https://youtu.be/zwLmLfVI-VQ?t=117)
-            I recommend watching the entire thing, as it will help setup this package. All 
+            I recommend watching the entire thing, as it will help setup this package. All
             the methods take this as a optional parameter, however it's cleaner code
             to store this at the instance level. You can override this at the specific
             methods.
@@ -203,12 +203,7 @@ class TikTokApi:
             parsed_data["referrer"],
         )
 
-    def get_data(self, **kwargs) -> dict:
-        """Makes requests to TikTok and returns their JSON.
-
-        This is all handled by the package so it's unlikely
-        you will need to use this.
-        """
+    def make_request_parts(self, **kwargs):
         (
             region,
             language,
@@ -256,9 +251,7 @@ class TikTokApi:
         csrf_token = h.headers["X-Ware-Csrf-Token"].split(",")[1]
         kwargs["csrf_session_id"] = csrf_session_id
 
-        r = requests.get(
-            url,
-            headers={
+        headers = {
                 "authority": "m.tiktok.com",
                 "method": "GET",
                 "path": url.split("tiktok.com")[1],
@@ -274,10 +267,29 @@ class TikTokApi:
                 "sec-gpc": "1",
                 "user-agent": userAgent,
                 "x-secsdk-csrf-token": csrf_token,
-            },
-            cookies=self.get_cookies(**kwargs),
-            proxies=self.__format_proxy(proxy),
-            **self.requests_extra_kwargs,
+            }
+        cookies = self.get_cookies(**kwargs)
+        proxy = self.__format_proxy(proxy)
+        return {
+            "url": url,
+            "headers": headers,
+            "cookies": cookies,
+            "proxy": proxy
+        }
+
+    def get_data(self, **kwargs):
+        """Makes requests to TikTok and returns their JSON.
+
+        This is all handled by the package so it's unlikely
+        you will need to use this.
+        """
+        request_parts = self.make_request_parts(**kwargs)
+        r = requests.get(
+            request_parts['url'],
+            headers=request_parts['headers'],
+            cookies=request_parts['cookies'],
+            proxies=request_parts['proxy'],
+            **self.requests_extra_kwargs
         )
         try:
             json = r.json()
@@ -286,7 +298,7 @@ class TikTokApi:
                 or json.get("verifyConfig", {}).get("type", "") == "verify"
             ):
                 logging.error(
-                    "Tiktok wants to display a catcha. Response is:\n" + r.text
+                    "Tiktok wants to display a captcha. Response is:\n" + r.text
                 )
                 logging.error(self.get_cookies(**kwargs))
                 raise TikTokCaptchaError()
@@ -301,7 +313,7 @@ class TikTokApi:
             logging.error("TikTok response: " + text)
             if len(text) == 0:
                 raise EmptyResponseError(
-                    "Empty response from Tiktok to " + url
+                    "Empty response from Tiktok to " + request_parts['url']
                 ) from None
             else:
                 logging.error("Converting response to JSON failed")
